@@ -45,7 +45,8 @@ app.use("/api/v1/slack/callback", async (req, res) => {
     }),
   });
   const data = await response.json();
-
+  console.log(data);
+  
   const redirectUrl = `merify-app://auth?access_token=${data.access_token}`;
   return res.redirect(redirectUrl);
 });
