@@ -23,7 +23,6 @@ app.get("/", (req, res) => {
   });
 });
 
-
 // API routes
 app.use("/api/v1/slack/callback", async (req, res) => {
   const { code } = req.query;
@@ -45,9 +44,7 @@ app.use("/api/v1/slack/callback", async (req, res) => {
     }),
   });
   const data = await response.json();
-  console.log(data);
-  
-  const redirectUrl = `merify-app://auth?access_token=${data.access_token}`;
+  const redirectUrl = `merify-app://auth?slack_access_token=${data.access_token}`;
   return res.redirect(redirectUrl);
 });
 
