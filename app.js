@@ -74,7 +74,7 @@ app.get("/api/v1/google/auth/start", (req, res) => {
   req.session.state = state;
   const url = oauth2Client.generateAuthUrl({
     access_type: "offline",
-    // prompt: "consent",
+    prompt: "consent",
     state: state,
     include_granted_scopes: true,
     scope: [
@@ -88,7 +88,7 @@ app.get("/api/v1/google/auth/start", (req, res) => {
   res.redirect(url);
 });
 
-app.get("/api/v1/google/auth/callback", async (req, res) => {
+app.get("/api/v1/google/callback", async (req, res) => {
   let q = url.parse(req.url, true).query;
 
   if (q.error) {
