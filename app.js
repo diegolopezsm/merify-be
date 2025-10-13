@@ -2,6 +2,10 @@ const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
 const morgan = require("morgan");
+const session = require("express-session");
+const { google } = require("googleapis");
+const crypto = require("crypto");
+const url = require("url");
 require("dotenv").config();
 
 const app = express();
@@ -14,6 +18,17 @@ app.use(morgan("combined")); // Logging
 app.use(express.json()); // Parse JSON bodies
 app.use(express.urlencoded({ extended: true })); // Parse URL-encoded bodies
 
+// Session middleware
+app.use(session({
+  secret: process.env.SESSION_SECRET,
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production', // Use secure cookies in production
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+  }
+}));
+
 // Basic route
 app.get("/", (req, res) => {
   res.json({
@@ -23,7 +38,7 @@ app.get("/", (req, res) => {
   });
 });
 
-// API routes
+// SLACK
 app.use("/api/v1/slack/callback", async (req, res) => {
   const { code } = req.query;
 
@@ -46,6 +61,58 @@ app.use("/api/v1/slack/callback", async (req, res) => {
   const data = await response.json();
   const redirectUrl = `merify-app://auth?slack_access_token=${data.access_token}`;
   return res.redirect(redirectUrl);
+});
+
+const oauth2Client = new google.auth.OAuth2(
+  process.env.GOOGLE_OAUTH_CLIENT_ID,
+  process.env.GOOGLE_OAUTH_CLIENT_SECRET,
+  process.env.GOOGLE_AUTH_REDIRECT_URI
+);
+
+app.get("/api/v1/google/auth/start", (req, res) => {
+  const state = crypto.randomBytes(32).toString("hex");
+  req.session.state = state;
+  const url = oauth2Client.generateAuthUrl({
+    access_type: "offline",
+    // prompt: "consent",
+    state: state,
+    include_granted_scopes: true,
+    scope: [
+      "https://www.googleapis.com/auth/gmail.readonly",
+      "https://www.googleapis.com/auth/drive.readonly",
+      "https://www.googleapis.com/auth/documents.readonly",
+      "https://www.googleapis.com/auth/spreadsheets.readonly",
+      "https://www.googleapis.com/auth/calendar.events.readonly",
+    ],
+  });
+  res.redirect(url);
+});
+
+app.get("/api/v1/google/auth/callback", async (req, res) => {
+  let q = url.parse(req.url, true).query;
+
+  if (q.error) {
+    // An error response e.g. error=access_denied
+    console.log("Error:" + q.error);
+    res.end("Error:" + q.error);
+    return;
+  }
+  if (q.state !== req.session.state) {
+    //check state value
+    console.log("State mismatch. Possible CSRF attack");
+    res.end("State mismatch. Possible CSRF attack");
+    return;
+  }
+
+  if (!q.code) {
+    return res.status(400).send("No code provided");
+  }
+
+  const { tokens } = await oauth2Client.getToken(q.code);
+
+  const redirectUrl = `merify-app://auth?google_access_token=${tokens.access_token}`;
+
+  res.redirect(redirectUrl);
 });
 
 // 404 handler
