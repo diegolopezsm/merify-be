@@ -8,8 +8,6 @@ const googleAuthService = new GoogleAuthService();
 
 // Google OAuth start route
 router.get("/auth/start", (req, res) => {
-  console.log("Starting Google OAuth");
-  
   const state = crypto.randomBytes(32).toString("hex");
   req.session.state = state;
   const authUrl = googleAuthService.generateAuthUrl(state);
@@ -39,7 +37,7 @@ router.get("/callback", async (req, res) => {
 
   try {
     const { tokens } = await googleAuthService.getToken(q.code);
-    const redirectUrl = `merify-app://auth?google_access_token=${tokens.access_token}`;
+    const redirectUrl = `merify-app://auth?google_access_token=${tokens.access_token}&google_refresh_token=${tokens.refresh_token}`;
     res.redirect(redirectUrl);
   } catch (error) {
     console.error("Google auth error:", error);
