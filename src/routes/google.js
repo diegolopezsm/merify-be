@@ -3,7 +3,7 @@ const router = express.Router();
 const crypto = require("crypto");
 const url = require("url");
 const GoogleAuthService = require("../services/googleAuth");
-
+const config = require("../config");
 const googleAuthService = new GoogleAuthService();
 
 // Google OAuth start route
@@ -37,11 +37,51 @@ router.get("/callback", async (req, res) => {
 
   try {
     const { tokens } = await googleAuthService.getToken(q.code);
-    const redirectUrl = `merify-app://auth?google_access_token=${tokens.access_token}&google_refresh_token=${tokens.refresh_token}`;
+    const redirectUrl = `merify-app://auth?google_access_token=${tokens.access_token}&google_refresh_token=${tokens.refresh_token}&expiry_date=${tokens.expiry_date}`;
     res.redirect(redirectUrl);
   } catch (error) {
     console.error("Google auth error:", error);
     res.status(500).send("Authentication failed");
+  }
+});
+
+// Google OAuth refresh token route
+router.post("/refresh-token", async (req, res) => {
+  try {
+    const { refresh_token } = req.query;
+    if (!refresh_token)
+      return res.status(400).json({ error: "missing_refresh_token" });
+
+    const params = new URLSearchParams({
+      client_id: config.google.clientId,
+      client_secret: config.google.clientSecret,
+      refresh_token: refresh_token,
+      grant_type: "refresh_token", // <- obligatorio
+    });
+
+    const r = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: params.toString(),
+    });
+
+    const data = await r.json();
+    if (!r.ok) {
+      // data puede contener { error, error_description }
+      console.warn("Google token endpoint responded non-OK", r.status, data);
+      // si error === 'invalid_grant' normalmente el refresh token está revocado/incorrecto/o no corresponde al client
+      return res.status(400).json({ status: r.status, ...data });
+    }
+
+    // OK: data tiene access_token, expires_in, token_type, scope (NO refresh_token normalmente)
+    return res.json(data);
+  } catch (err) {
+    console.error("Error refresh token:", err);
+    return res
+      .status(500)
+      .json({ error: "server_error", message: String(err) });
   }
 });
 
