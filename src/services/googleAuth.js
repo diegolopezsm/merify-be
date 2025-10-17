@@ -13,7 +13,7 @@ class GoogleAuthService {
   generateAuthUrl(state) {
     return this.oauth2Client.generateAuthUrl({
       access_type: "offline",
-      prompt: "select_account",
+      prompt: "consent",
       state: state,
       include_granted_scopes: true,
       scope: config.google.scopes,
