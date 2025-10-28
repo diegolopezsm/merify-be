@@ -30,6 +30,8 @@ const config = {
       "https://www.googleapis.com/auth/calendar.events.readonly",
       "https://www.googleapis.com/auth/userinfo.email",
       "https://www.googleapis.com/auth/userinfo.profile",
+      "https://www.googleapis.com/auth/pubsub",
+      "https://www.googleapis.com/auth/cloud-platform",
     ],
   },
 
